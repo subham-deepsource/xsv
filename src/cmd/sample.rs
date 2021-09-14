@@ -61,22 +61,19 @@ pub fn run(argv: &[&str]) -> CliResult<()> {
     let sample_size = args.arg_sample_size;
 
     let mut wtr = Config::new(&args.flag_output).writer()?;
-    let sampled = match rconfig.indexed()? {
-        Some(mut idx) => {
-            if do_random_access(sample_size, idx.count()) {
-                rconfig.write_headers(&mut *idx, &mut wtr)?;
-                sample_random_access(&mut idx, sample_size)?
-            } else {
-                let mut rdr = rconfig.reader()?;
-                rconfig.write_headers(&mut rdr, &mut wtr)?;
-                sample_reservoir(&mut rdr, sample_size, args.flag_seed)?
-            }
-        }
-        _ => {
+    let sampled = if let Some(mut idx) = rconfig.indexed()? {
+        if do_random_access(sample_size, idx.count()) {
+            rconfig.write_headers(&mut *idx, &mut wtr)?;
+            sample_random_access(&mut idx, sample_size)?
+        } else {
             let mut rdr = rconfig.reader()?;
             rconfig.write_headers(&mut rdr, &mut wtr)?;
             sample_reservoir(&mut rdr, sample_size, args.flag_seed)?
         }
+    } else {
+        let mut rdr = rconfig.reader()?;
+        rconfig.write_headers(&mut rdr, &mut wtr)?;
+        sample_reservoir(&mut rdr, sample_size, args.flag_seed)?
     };
     for row in sampled.into_iter() {
         wtr.write_byte_record(&row)?;
